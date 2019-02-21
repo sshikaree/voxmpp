@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bufio"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -14,14 +17,22 @@ import (
 func main() {
 	log.SetFlags(log.Lshortfile)
 
-	if len(os.Args) < 2 {
-		log.Printf("Usage: %s JID (e.g.: %s user@example.com)\n", os.Args[0], os.Args[0])
-		os.Exit(1)
-	}
+	// var remote_jid string = ""
 
-	opponentJID := os.Args[1]
+	jid := flag.String("jid", "", "jid")
+	password := flag.String("password", "", "password")
+	notls := flag.Bool("notls", true, "No TLS")
+	debug := flag.Bool("debug", false, "Debug mode")
 
-	client := NewApp()
+	flag.Parse()
+	flag.VisitAll(func(f *flag.Flag) {
+		if f.Value.String() == "" {
+			fmt.Println(f.Name, "is empty!")
+			os.Exit(1)
+		}
+	})
+
+	client := NewApp(jid, password, *notls, *debug)
 	client.ConnectXMPPAndRetry()
 	defer client.Close()
 
@@ -66,6 +77,32 @@ func main() {
 		}
 	}()
 
+	// Chunks sender
+	go func() {
+		var (
+			chunk []byte
+			err   error
+		)
+		for {
+			// log.Println("Sending...")
+			chunk = <-client.OutgoingBuffer
+			if client.RemoteJID.Get() == "" {
+				continue
+			}
+			if err = client.SendChunk(chunk, client.RemoteJID.Get()); err != nil {
+				log.Println("Error sending chunk:", err)
+			}
+		}
+
+	}()
+
+	// Player
+	go func() {
+		if err := audio.ContinuousPlay(client.IncomingBuffer); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
 	// Audio Recorder
 	go func() {
 		// log.Println("Recording...")
@@ -75,30 +112,11 @@ func main() {
 
 	}()
 
-	// Sender
-	go func() {
-		var (
-			chunk []byte
-			err   error
-		)
-		for {
-			// log.Println("Sending...")
-			chunk = <-client.OutgoingBuffer
-			if err = client.SendChunk(chunk, opponentJID); err != nil {
-				log.Println(err)
-			}
-		}
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print("> ")
 
-	}()
-
-	// Player
-	// var chunk []byte
-	// for {
-	// 	chunk = <-client.IncomingBuffer
-	// 	audio.PlayChunk(chunk)
-	// }
-	if err := audio.ContinuousPlay(client.IncomingBuffer); err != nil {
-		log.Fatal(err)
+	for scanner.Scan() {
+		client.ParseLine(scanner.Text())
+		fmt.Print("> ")
 	}
-
 }

@@ -4,10 +4,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/xml"
+	"fmt"
 	"log"
+	"os"
+	"strings"
+	"sync"
 	"time"
-
-	"github.com/BurntSushi/toml"
 
 	xmpp "github.com/sshikaree/go-xmpp2"
 )
@@ -17,26 +19,48 @@ const (
 	PING_INTERVAL      time.Duration = 15 * time.Minute
 )
 
+type RemoteJID struct {
+	jid string
+	sync.Mutex
+}
+
+func (r *RemoteJID) Get() string {
+	r.Lock()
+	defer r.Unlock()
+	return r.jid
+}
+
+func (r *RemoteJID) Set(jid string) {
+	r.Lock()
+	r.jid = jid
+	r.Unlock()
+}
+
 type App struct {
 	*xmpp.Client
 	options        xmpp.Options
 	IncomingBuffer chan []byte
 	OutgoingBuffer chan []byte
+	RemoteJID      RemoteJID
 }
 
-func NewApp() *App {
-	config := Config{}
-	if _, err := toml.DecodeFile("config.toml", &config); err != nil {
-		log.Fatal(err)
+func NewApp(jid *string, password *string, notls bool, debug bool) *App {
+	// config := Config{}
+	// if _, err := toml.DecodeFile("config.toml", &config); err != nil {
+	// 	log.Fatal(err)
+	// }
+	server := strings.Split(*jid, "@")
+	if len(server) < 2 {
+		log.Fatal("Wrong JID")
 	}
 
 	a := App{}
 	a.options = xmpp.Options{
-		Host:          config.XMPP.Host,
-		User:          config.XMPP.User,
-		Password:      config.XMPP.Password,
-		NoTLS:         config.XMPP.NoTLS,
-		Debug:         config.XMPP.Debug,
+		Host:          server[1],
+		User:          *jid,
+		Password:      *password,
+		NoTLS:         notls,
+		Debug:         debug,
 		Status:        "chat",
 		StatusMessage: "Hi there!",
 	}
@@ -49,9 +73,11 @@ func NewApp() *App {
 
 func (a *App) ConnectToXMPPServer() error {
 	var err error
-	xmpp.DefaultConfig = tls.Config{
-		ServerName:         a.options.Host,
-		InsecureSkipVerify: false,
+	if a.options.NoTLS == false {
+		xmpp.DefaultConfig = tls.Config{
+			ServerName:         a.options.Host,
+			InsecureSkipVerify: false,
+		}
 	}
 
 	a.Client, err = a.options.NewClient()
@@ -65,8 +91,35 @@ func (a *App) ConnectXMPPAndRetry() {
 		if err == nil {
 			break
 		}
-		log.Println(err)
+		log.Println("Error connecting server:", err)
 		time.Sleep(XMPP_CONNECT_DELAY)
+	}
+}
+
+func (a *App) ParseLine(line string) {
+	tokens := strings.Split(line, " ")
+
+	switch tokens[0] {
+	case "/call":
+		if len(tokens) < 2 {
+			fmt.Println("Not enough parameters")
+			return
+		}
+		a.RemoteJID.Set(tokens[1])
+	case "/stop":
+		a.RemoteJID.Set("")
+	case "/exit":
+		os.Exit(0)
+	default:
+		if len(tokens) < 2 {
+			fmt.Println("Not enough parameters")
+			return
+		}
+		msg := xmpp.Message{}
+		msg.To = tokens[0]
+		msg.Type = "chat"
+		msg.Body = tokens[1]
+		a.SendMessage(&msg)
 	}
 }
 
@@ -74,7 +127,7 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 	// log.Println("Recieved message!")
 	switch msg.Type {
 	case "chat":
-		log.Println(msg.Body)
+		fmt.Println(msg.Body)
 
 	case "ibb":
 		// log.Println("Recieved IBB!")
