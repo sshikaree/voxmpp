@@ -1,0 +1,6 @@
+[xmpp]
+host = ""
+user = ""
+password = ""
+notls = true
+debug = false
