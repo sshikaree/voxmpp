@@ -6,6 +6,12 @@ Voice over XMPP app using base64 encoding.
 2. `$ go build`
 3. `$ ./voxmpp -jid="user@example.com" -password="pass" -debug=false`
 
+#### Commands
+    /call user@example.com - start voice transmission
+    /stop — stop voice transmission
+    /exit - exit
+    user@example.com some_message - send message
+
 #### TODO
     - Call handshake
     - Audio compression
