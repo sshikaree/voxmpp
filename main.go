@@ -98,7 +98,7 @@ func main() {
 
 	// Player
 	go func() {
-		if err := audio.ContinuousPlay(client.IncomingBuffer); err != nil {
+		if err := audio.ContinuousPlayOpus(client.IncomingBuffer); err != nil {
 			log.Fatal(err)
 		}
 	}()
@@ -106,7 +106,7 @@ func main() {
 	// Audio Recorder
 	go func() {
 		// log.Println("Recording...")
-		if err := audio.ContinuousRecord(client.OutgoingBuffer); err != nil {
+		if err := audio.ContinuousRecordOpus(client.OutgoingBuffer); err != nil {
 			log.Fatal(err)
 		}
 
