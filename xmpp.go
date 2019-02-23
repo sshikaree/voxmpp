@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sshikaree/b64audio"
 	xmpp "github.com/sshikaree/go-xmpp2"
 )
 
@@ -137,7 +138,8 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 			log.Println(err)
 			return
 		}
-		bindata, err := base64.StdEncoding.DecodeString(string(data.Payload))
+		// bindata, err := base64.StdEncoding.DecodeString(string(data.Payload))
+		bindata, err := b64audio.DecodePayload(data.Payload)
 		if err != nil {
 			log.Println(err)
 			return
@@ -151,15 +153,15 @@ func (a *App) SendChunk(chunk []byte, to string) error {
 	if chunk == nil || len(chunk) == 0 {
 		return nil
 	}
-	// var chunk_base64 []byte
-	// base64.StdEncoding.Encode(chunk_base64, chunk)
-	base64_string := base64.StdEncoding.EncodeToString(chunk)
+	chunk_base64 := make([]byte, base64.StdEncoding.EncodedLen(len(chunk)))
+	base64.StdEncoding.Encode(chunk_base64, chunk)
+	// base64_string := base64.StdEncoding.EncodeToString(chunk)
 	body, err := xml.Marshal(xmpp.XMLElement{
 		XMLName: xml.Name{
 			Space: "http://jabber.org/protocol/ibb",
 			Local: "data",
 		},
-		InnerXML: []byte(base64_string),
+		InnerXML: chunk_base64,
 	})
 	if err != nil {
 		return err
