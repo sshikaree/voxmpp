@@ -2,9 +2,10 @@
 Voice over XMPP app using base64 encoding.
 ## Usage
 0. Install PortAudio dev files (on Ubuntu Linux: `$ sudo apt install portaudio19-dev`)
-1. `$ go get -u github.com/sshikaree/voxmpp`
-2. `$ go build`
-3. `$ ./voxmpp -jid="user@example.com" -password="pass" -debug=false`
+1. Install Opus dev files (on Ubuntu Linux: `$ sudo apt install libopus-dev libopusfile-dev`)
+2. `$ go get -u github.com/sshikaree/voxmpp`
+3. `$ go build`
+4. `$ ./voxmpp -jid="user@example.com" -password="pass" -debug=false`
 
 #### Commands
     /call user@example.com - start voice transmission
@@ -14,4 +15,4 @@ Voice over XMPP app using base64 encoding.
 
 #### TODO
     - Call handshake
-    - Audio compression
+    ~~- Audio compression~~
