@@ -15,4 +15,4 @@ Voice over XMPP app using base64 encoding.
 
 #### TODO
     - Call handshake
-    ~~- Audio compression~~
+    ~~Audio compression~~
