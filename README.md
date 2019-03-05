@@ -10,5 +10,7 @@ Voice over XMPP app using base64 encoding.
 ![Alt text](/screenshot/voxmpp.png?raw=true)
 
 #### TODO
-    ~~Call handshake~~
-    ~~Audio compression~~
+    <s>Call handshake</s>
+    <s>Audio compression</s>
+    - Bugs.. Bugs everywhere.
+    - Add phone call sound
