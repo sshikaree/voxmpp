@@ -5,21 +5,16 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"runtime"
 	"time"
 
-	"github.com/gordonklaus/portaudio"
-
-	audio "github.com/sshikaree/b64audio"
 	xmpp "github.com/sshikaree/go-xmpp2"
 )
 
 func main() {
 	log.SetFlags(log.Lshortfile)
 
-	runtime.LockOSThread()
-
-	// var remote_jid string = ""
+	// runtime.LockOSThread()
+	// defer runtime.UnlockOSThread()
 
 	jid := flag.String("jid", "", "jid")
 	password := flag.String("password", "", "password")
@@ -35,6 +30,8 @@ func main() {
 	})
 
 	client := NewApp(jid, password, *notls, *debug)
+	// log.SetOutput(client.ui.textView)
+
 	// client.ConnectXMPPAndRetry()
 	err := client.ConnectToXMPPServer()
 	if err != nil {
@@ -43,10 +40,10 @@ func main() {
 	defer client.Close()
 
 	// Init PortAudio
-	if err := portaudio.Initialize(); err != nil {
-		log.Fatal(err)
-	}
-	defer portaudio.Terminate()
+	// if err := portaudio.Initialize(); err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer portaudio.Terminate()
 
 	// Periodicaly send ping to server
 	go func() {
@@ -69,14 +66,16 @@ func main() {
 		for {
 			chat, err := client.Recv()
 			if err != nil {
+				// TODO:
+				// - reconnect ??
 				log.Println(err)
+
+				client.ConnectXMPPAndRetry()
 				continue
 			}
 			switch v := chat.(type) {
 			case xmpp.Message:
-				// TODO:
-				// - run ParseXMPPMessage in a separate goroutine?
-				go client.ParseXMPPMessage(&v)
+				client.ParseXMPPMessage(&v)
 			case xmpp.Presence:
 				continue
 			case xmpp.IQ:
@@ -92,7 +91,6 @@ func main() {
 			err   error
 		)
 		for {
-			// log.Println("Sending...")
 			chunk = <-client.OutgoingBuffer
 			if client.RemoteJID.Get() == "" {
 				continue
@@ -105,31 +103,26 @@ func main() {
 	}()
 
 	// Player
-	go func() {
-		if err := audio.ContinuousPlayOpus(client.IncomingBuffer); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	// go func() {
+	// 	if err := audio.ContinuousPlayOpus(client.IncomingBuffer); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }()
 
 	// Audio Recorder
-	go func() {
-		// log.Println("Recording...")
-		if err := audio.ContinuousRecordOpus(client.OutgoingBuffer); err != nil {
-			log.Fatal(err)
-		}
+	// go func() {
+	// 	// log.Println("Recording...")
+	// 	if err := audio.ContinuousRecordOpus(client.OutgoingBuffer); err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }()
 
-	}()
-
-	// scanner := bufio.NewScanner(os.Stdin)
-	// fmt.Print("~> ")
-
-	// wait for exit command
-	// <-client.ExitCh
-
-	// for client.scanner.Scan() {
-	// 	client.ParseCommandLine(client.scanner.Text())
-	// 	fmt.Print("~> ")
-	// }
+	// Init audio
+	audio, err := InitAudio(client.IncomingBuffer, client.OutgoingBuffer)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer audio.Close()
 
 	// Run User Interface
 	if err := client.ui.Run(); err != nil {

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/sshikaree/b64audio"
 	xmpp "github.com/sshikaree/go-xmpp2"
 )
 
@@ -141,7 +140,6 @@ func NewApp(jid *string, password *string, notls bool, debug bool) *App {
 	// a.inputReader.InputReaderStart()
 
 	a.ui = NewUI(&a)
-
 	return &a
 }
 
@@ -232,7 +230,7 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 			if len(msg.OtherElements) < 1 {
 				return
 			}
-			bindata, err := b64audio.DecodePayload(msg.OtherElements[0].InnerXML)
+			bindata, err := DecodePayload(msg.OtherElements[0].InnerXML)
 			if err != nil {
 				log.Println(err)
 				return
@@ -290,7 +288,6 @@ func (a *App) RejectCallMsg(msg *xmpp.Message) {
 // AbortOutgoingCall aborts call
 // It takes copy of original message
 func (a *App) AbortOutgoingCall(msg xmpp.Message) {
-	a.RemoteJID.Set("")
 	msg.Type = "error"
 	msg.OtherElements = []xmpp.XMLElement{}
 	// msg.Error = &xmpp.Error{}
@@ -304,6 +301,7 @@ func (a *App) AbortOutgoingCall(msg xmpp.Message) {
 	if err != nil {
 		log.Println(err)
 	}
+	a.RemoteJID.Set("")
 
 }
 
