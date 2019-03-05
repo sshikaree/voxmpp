@@ -1,11 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/gordonklaus/portaudio"
@@ -16,6 +16,8 @@ import (
 
 func main() {
 	log.SetFlags(log.Lshortfile)
+
+	runtime.LockOSThread()
 
 	// var remote_jid string = ""
 
@@ -33,7 +35,11 @@ func main() {
 	})
 
 	client := NewApp(jid, password, *notls, *debug)
-	client.ConnectXMPPAndRetry()
+	// client.ConnectXMPPAndRetry()
+	err := client.ConnectToXMPPServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer client.Close()
 
 	// Init PortAudio
@@ -68,7 +74,9 @@ func main() {
 			}
 			switch v := chat.(type) {
 			case xmpp.Message:
-				client.ParseXMPPMessage(&v)
+				// TODO:
+				// - run ParseXMPPMessage in a separate goroutine?
+				go client.ParseXMPPMessage(&v)
 			case xmpp.Presence:
 				continue
 			case xmpp.IQ:
@@ -112,11 +120,19 @@ func main() {
 
 	}()
 
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print("> ")
+	// scanner := bufio.NewScanner(os.Stdin)
+	// fmt.Print("~> ")
 
-	for scanner.Scan() {
-		client.ParseLine(scanner.Text())
-		fmt.Print("> ")
+	// wait for exit command
+	// <-client.ExitCh
+
+	// for client.scanner.Scan() {
+	// 	client.ParseCommandLine(client.scanner.Text())
+	// 	fmt.Print("~> ")
+	// }
+
+	// Run User Interface
+	if err := client.ui.Run(); err != nil {
+		log.Fatal(err)
 	}
 }
