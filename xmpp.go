@@ -102,11 +102,8 @@ type App struct {
 	OutgoingBuffer chan []byte
 	RemoteJID      RemoteJID
 	pending        *PendingCalls
-	// scanner        *bufio.Scanner
-	// inputReader *InputReader
-	ui *UI
 
-	// ExitCh chan bool
+	ui *UI
 }
 
 func NewApp(jid *string, password *string, notls bool, debug bool) *App {
@@ -132,12 +129,6 @@ func NewApp(jid *string, password *string, notls bool, debug bool) *App {
 	a.pending = &PendingCalls{
 		calls: make(map[string]*Call),
 	}
-
-	// a.ExitCh = make(chan bool)
-	// a.scanner = bufio.NewScanner(os.Stdin)
-
-	// a.inputReader = &InputReader{}
-	// a.inputReader.InputReaderStart()
 
 	a.ui = NewUI(&a)
 	return &a
@@ -202,23 +193,6 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 			a.ui.QueueUpdateDraw(func() {
 				a.ui.ShowIncomingModal(*msg)
 			})
-			// TODO: send "wait.." message?
-			// fmt.Printf("Incoming call from %s. Pick up? (Y/n): ", msg.From)
-			// for {
-			// 	switch a.inputReader.Get() { //a.scanner.Text() {
-			// 	case "y", "Y":
-			// 		fmt.Printf("Accepted.\n~> ")
-			// 		a.AcceptCallMsg(msg)
-			// 		return
-			// 	case "n", "N":
-			// 		fmt.Printf("Rejected.\n~> ")
-			// 		a.RejectCallMsg(msg)
-			// 		return
-			// 	default:
-			// 		fmt.Print("Enter 'y', 'n' or press 'enter' for default(y): ")
-			// 		// a.scanner.Scan()
-			// 	}
-			// }
 
 		// data package
 		case "data":

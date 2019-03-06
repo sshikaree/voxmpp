@@ -102,21 +102,6 @@ func main() {
 
 	}()
 
-	// Player
-	// go func() {
-	// 	if err := audio.ContinuousPlayOpus(client.IncomingBuffer); err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// }()
-
-	// Audio Recorder
-	// go func() {
-	// 	// log.Println("Recording...")
-	// 	if err := audio.ContinuousRecordOpus(client.OutgoingBuffer); err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// }()
-
 	// Init audio
 	audio, err := InitAudio(client.IncomingBuffer, client.OutgoingBuffer)
 	if err != nil {
