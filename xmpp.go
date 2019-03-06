@@ -161,7 +161,11 @@ func (a *App) ConnectXMPPAndRetry() {
 
 // ParseXMPPMessage parses incoming message stanza
 func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
-	// log.Println("Recieved message!")
+	text, _ := xml.Marshal(&msg)
+	a.ui.QueueUpdateDraw(func() {
+		fmt.Fprintf(a.ui.textView, "Message received: %s\n", string(text))
+	})
+
 	switch msg.Type {
 	// skip for now
 	case "chat":
@@ -171,16 +175,16 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 	// call rejected
 	case "error":
 		a.RemoteJID.Set("")
+		a.ui.QueueUpdateDraw(func() {
+			fmt.Fprintf(a.ui.textView, "Error message received: %s\n", string(text))
+		})
 		a.pending.Done(msg, errors.New("Call was rejected"))
 
 	// call accepted
 	case "result":
-		// log.Println("result recieved!")
 		a.pending.Done(msg, nil)
 
 	case "voxmpp":
-		// log.Println("voxmpp message recieved!")
-		// log.Println(msg)
 		if len(msg.OtherElements) < 1 {
 			return
 		}
@@ -188,8 +192,26 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 			return
 		}
 		switch msg.OtherElements[0].XMLName.Local {
+
 		// request to open channel
 		case "open":
+			// add call to calls pool
+			call := a.pending.Push(msg)
+
+			go func() {
+				select {
+				case <-call.Done:
+
+				case <-time.After(CALL_TIMEOUT):
+					// a.RejectCallMsg(msg)
+				}
+
+				a.pending.Pop(msg.ID)
+				a.ui.QueueUpdateDraw(func() {
+					a.ui.HideIncomingModal()
+				})
+			}()
+
 			a.ui.QueueUpdateDraw(func() {
 				a.ui.ShowIncomingModal(*msg)
 			})
@@ -217,7 +239,7 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 
 }
 
-// AcceptCall accepsts incoming call
+// AcceptCall accepts incoming call
 func (a *App) AcceptCallMsg(msg *xmpp.Message) {
 	resp := xmpp.Message{}
 	resp.To = msg.From
@@ -260,28 +282,27 @@ func (a *App) RejectCallMsg(msg *xmpp.Message) {
 }
 
 // AbortOutgoingCall aborts call
-// It takes copy of original message
-func (a *App) AbortOutgoingCall(msg xmpp.Message) {
-	msg.Type = "error"
-	msg.OtherElements = []xmpp.XMLElement{}
+func (a *App) AbortOutgoingCall(msg *xmpp.Message) {
+	errMsg := xmpp.Message{}
+	errMsg.Type = "error"
+	errMsg.To = msg.To
+	errMsg.ID = msg.ID
+	// msg.OtherElements = []xmpp.XMLElement{}
 	// msg.Error = &xmpp.Error{}
 
-	// text, _ := xml.Marshal(&msg)
-	// fmt.Fprintln(a.ui.textView, string(text))
+	// a.pending.Pop(msg.ID)
+	a.pending.Done(msg, errors.New("cancelled"))
 
-	a.pending.Pop(msg.ID)
-
-	_, err := a.SendMessage(&msg)
+	_, err := a.SendMessage(&errMsg)
 	if err != nil {
 		log.Println(err)
 	}
+	text, _ := xml.Marshal(&errMsg)
+	a.ui.QueueUpdateDraw(func() {
+		fmt.Fprintf(a.ui.textView, "Abort message was sent: %s\n", string(text))
+	})
 	a.RemoteJID.Set("")
 
-}
-
-// Not implemented
-func (a *App) ParseIQ(iq *xmpp.IQ) {
-	log.Printf("%+v\n", iq)
 }
 
 // SendChunk endcodes into base64 and sends chunk of data
@@ -309,29 +330,6 @@ func (a *App) SendChunk(chunk []byte, to string) error {
 	return err
 }
 
-// CalIQ sends call request using iq stanza
-// Not implemented
-func (a *App) CallIQ(jid string) error {
-	query := xmpp.Query{}
-	query.XMLName.Space = NSVOXMPP
-	query.XMLName.Local = "open"
-	iq := xmpp.IQ{}
-	iq.ID = "123" // TODO: Generate randomly
-	iq.To = jid
-	iq.Type = "set"
-	iq.InnerElement = query
-
-	// b, err := xml.Marshal(&iq)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	// fmt.Println(string(b))
-
-	_, err := a.SendIQ(&iq)
-	return err
-
-}
-
 // CallMsg sends call request using message stanza
 func (a *App) CallMsg(jid string) error {
 	msg := xmpp.Message{}
@@ -348,7 +346,6 @@ func (a *App) CallMsg(jid string) error {
 				Space: NSVOXMPP,
 				Local: "open",
 			},
-			// InnerXML: []byte("hello"),
 		},
 	}
 
@@ -369,35 +366,39 @@ func (a *App) CallMsg(jid string) error {
 	}
 	// TODO:
 	// - Start calling sound
-	// - Display calling message
-	// fmt.Printf("Calling %s (timeout %v)... ", jid, CALL_TIMEOUT)
+
 	select {
 	case <-call.Done:
 
 	case <-time.After(CALL_TIMEOUT):
-		// TODO:
-		// - Stop calling
 		a.ui.QueueUpdateDraw(func() {
 			a.ui.HideCallModal()
 		})
-		a.AbortOutgoingCall(msg)
+		a.AbortOutgoingCall(&msg)
 		err = errors.New("Request timeout")
 		call.Error = err
 		a.pending.Pop(msg.ID)
 		a.RemoteJID.Set("")
 		return err
 	}
+
 	a.ui.QueueUpdateDraw(func() {
 		a.ui.HideCallModal()
 	})
+
 	if call.Error != nil {
-		fmt.Printf("Error connecting %s: %s", jid, call.Error)
+		fmt.Fprintf(a.ui.textView, "Error connecting %s: %s\n", jid, call.Error)
+		a.ui.QueueUpdateDraw(func() {
+			a.ui.HideCallModal()
+		})
+		a.pending.Pop(msg.ID)
 		return call.Error
 	}
+
 	a.ui.QueueUpdateDraw(func() {
 		a.ui.ShowActiveCallModal(msg)
 	})
 	a.RemoteJID.Set(jid)
-	// fmt.Printf("Connection with %s established!", jid)
+	a.pending.Pop(msg.ID)
 	return nil
 }

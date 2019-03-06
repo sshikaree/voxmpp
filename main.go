@@ -75,7 +75,7 @@ func main() {
 			}
 			switch v := chat.(type) {
 			case xmpp.Message:
-				client.ParseXMPPMessage(&v)
+				go client.ParseXMPPMessage(&v)
 			case xmpp.Presence:
 				continue
 			case xmpp.IQ:

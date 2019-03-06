@@ -46,10 +46,7 @@ func NewUI(app *App) *UI {
 
 	ui.btnCall = tview.NewButton("Call")
 	ui.btnCall.SetBorder(true)
-	ui.btnExit = tview.NewButton("Exit").
-		SetSelectedFunc(func() {
-			ui.Stop()
-		})
+	ui.btnExit = tview.NewButton("Exit")
 	ui.btnExit.SetBorder(true)
 
 	ui.incomingModal = tview.NewModal()
@@ -91,7 +88,7 @@ func NewUI(app *App) *UI {
 	})
 
 	ui.btnCall.SetSelectedFunc(func() {
-		fmt.Fprintln(ui.textView, "Calling ", ui.input.GetText(), "... ")
+		fmt.Fprintf(ui.textView, "Calling %s... \n", ui.input.GetText())
 		// ui.pages.ShowPage("call_modal")
 		go ui.core.CallMsg(ui.input.GetText())
 	})
@@ -106,6 +103,9 @@ func NewUI(app *App) *UI {
 		}
 	})
 
+	ui.btnExit.SetSelectedFunc(func() {
+		ui.Stop()
+	})
 	ui.btnExit.SetBlurFunc(func(key tcell.Key) {
 		switch key {
 		case tcell.KeyTab, tcell.KeyEsc:
@@ -140,6 +140,10 @@ func (ui *UI) ShowIncomingModal(msg xmpp.Message) {
 	ui.pages.ShowPage("incoming_modal")
 }
 
+func (ui *UI) HideIncomingModal() {
+	ui.pages.HidePage("incoming_modal")
+}
+
 func (ui *UI) ShowActiveCallModal(msg xmpp.Message) {
 	ui.activeCallModal.SetText("Connected to " + msg.From)
 	ui.activeCallModal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
@@ -156,8 +160,8 @@ func (ui *UI) HideActiveCallModal() {
 func (ui *UI) ShowCallModal(msg xmpp.Message) {
 	ui.callModal.SetText("Calling " + ui.input.GetText() + "...")
 	ui.callModal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-		ui.core.pending.Pop(msg.ID)
-		ui.core.AbortOutgoingCall(msg)
+		//ui.core.pending.Pop(msg.ID)
+		ui.core.AbortOutgoingCall(&msg)
 		ui.pages.HidePage("call_modal")
 		fmt.Fprintln(ui.textView, " canceled.")
 	})
