@@ -320,10 +320,10 @@ func (a *App) AbortOutgoingCall(msg *xmpp.Message) {
 	if err != nil {
 		log.Println(err)
 	}
-	text, _ := xml.Marshal(&errMsg)
-	a.ui.QueueUpdateDraw(func() {
-		fmt.Fprintf(a.ui.textView, "Abort message was sent: %s\n", string(text))
-	})
+	// text, _ := xml.Marshal(&errMsg)
+	// a.ui.QueueUpdateDraw(func() {
+	// 	fmt.Fprintf(a.ui.textView, "Abort message was sent: %s\n", string(text))
+	// })
 	a.RemoteJID.Set("")
 }
 
