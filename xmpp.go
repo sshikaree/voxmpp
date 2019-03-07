@@ -161,16 +161,15 @@ func (a *App) ConnectXMPPAndRetry() {
 
 // ParseXMPPMessage parses incoming message stanza
 func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
-	text, _ := xml.Marshal(&msg)
-	a.ui.QueueUpdateDraw(func() {
-		fmt.Fprintf(a.ui.textView, "Message received: %s\n", string(text))
-	})
+	// text, _ := xml.Marshal(&msg)
+	// a.ui.QueueUpdateDraw(func() {
+	// 	fmt.Fprintf(a.ui.textView, "Message received: %s\n", string(text))
+	// })
 
 	switch msg.Type {
 	// skip for now
 	case "chat":
 		fmt.Fprintf(a.ui.textView, "(%v) %s: %s\n", time.Now(), msg.From, msg.Body)
-		// fmt.Println(msg.Body)
 
 	case "voxmpp":
 		// error received
@@ -180,9 +179,10 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 				return
 			}
 			a.RemoteJID.Set("")
-			// a.ui.QueueUpdateDraw(func() {
-			// 	fmt.Fprintf(a.ui.textView, "Error message received: %s\n", string(text))
-			// })
+			a.ui.QueueUpdateDraw(func() {
+				// 	fmt.Fprintf(a.ui.textView, "Error message received: %s\n", string(text))
+				a.ui.HideActiveCallModal()
+			})
 			a.pending.Done(msg, errors.New("Call was rejected"))
 		}
 
@@ -192,15 +192,8 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 		if msg.OtherElements[0].XMLName.Space != NSVOXMPP {
 			return
 		}
-		switch msg.OtherElements[0].XMLName.Local {
 
-		// call rejected
-		// case "error":
-		// 	a.RemoteJID.Set("")
-		// 	a.ui.QueueUpdateDraw(func() {
-		// 		fmt.Fprintf(a.ui.textView, "Error message received: %s\n", string(text))
-		// 	})
-		// 	a.pending.Done(msg, errors.New("Call was rejected"))
+		switch msg.OtherElements[0].XMLName.Local {
 
 		// call accepted
 		case "result":
@@ -292,12 +285,10 @@ func (a *App) RejectCallMsg(msg *xmpp.Message) {
 		resp.ID = u.String()
 	}
 	resp.Type = "voxmpp"
-	resp.OtherElements = []xmpp.XMLElement{
-		{
-			XMLName: xml.Name{
-				Space: NSVOXMPP,
-				Local: "error",
-			},
+	resp.Error = &xmpp.Error{
+		XMLName: xml.Name{
+			Space: NSVOXMPP,
+			Local: "error",
 		},
 	}
 
@@ -322,15 +313,6 @@ func (a *App) AbortOutgoingCall(msg *xmpp.Message) {
 		},
 	}
 
-	// errMsg.OtherElements = []xmpp.XMLElement{
-	// 	{
-	// 		XMLName: xml.Name{
-	// 			Space: NSVOXMPP,
-	// 			Local: "error",
-	// 		},
-	// 	},
-	// }
-
 	// a.pending.Pop(msg.ID)
 	a.pending.Done(msg, errors.New("cancelled"))
 
@@ -343,7 +325,6 @@ func (a *App) AbortOutgoingCall(msg *xmpp.Message) {
 		fmt.Fprintf(a.ui.textView, "Abort message was sent: %s\n", string(text))
 	})
 	a.RemoteJID.Set("")
-
 }
 
 // SendChunk endcodes into base64 and sends chunk of data
@@ -390,11 +371,6 @@ func (a *App) CallMsg(jid string) error {
 		},
 	}
 
-	// b, err := xml.Marshal(&msg)
-	// if err != nil {
-	// 	log.Println(err)
-	// }
-	// fmt.Println(string(b))
 	a.ui.QueueUpdateDraw(func() {
 		a.ui.ShowCallModal(msg)
 	})

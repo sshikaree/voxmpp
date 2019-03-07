@@ -149,7 +149,8 @@ func (ui *UI) HideIncomingModal() {
 func (ui *UI) ShowActiveCallModal(msg xmpp.Message) {
 	ui.activeCallModal.SetText("Connected to " + msg.From)
 	ui.activeCallModal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-		ui.core.RejectCallMsg(&msg)
+		// abort current call
+		ui.core.RejectCallMsg(nil)
 		ui.pages.HidePage("active_call_modal")
 	})
 	ui.pages.ShowPage("active_call_modal")
