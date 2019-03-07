@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
@@ -122,6 +123,7 @@ func NewUI(app *App) *UI {
 // TODO:
 // - should we pass copy of msg???
 func (ui *UI) ShowIncomingModal(msg xmpp.Message) {
+	fmt.Fprintf(ui.textView, "%s: Incoming call from %s...", time.Now().Local(), msg.From)
 	ui.incomingModal.SetText("Incoming call from " + msg.From)
 	ui.incomingModal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		if buttonIndex == 0 {

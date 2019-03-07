@@ -172,19 +172,20 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 		fmt.Fprintf(a.ui.textView, "(%v) %s: %s\n", time.Now(), msg.From, msg.Body)
 		// fmt.Println(msg.Body)
 
-	// call rejected
-	case "error":
-		a.RemoteJID.Set("")
-		a.ui.QueueUpdateDraw(func() {
-			fmt.Fprintf(a.ui.textView, "Error message received: %s\n", string(text))
-		})
-		a.pending.Done(msg, errors.New("Call was rejected"))
-
-	// call accepted
-	case "result":
-		a.pending.Done(msg, nil)
-
 	case "voxmpp":
+		// error received
+		// call rejected
+		if msg.Error != nil {
+			if msg.Error.XMLName.Space != NSVOXMPP {
+				return
+			}
+			a.RemoteJID.Set("")
+			// a.ui.QueueUpdateDraw(func() {
+			// 	fmt.Fprintf(a.ui.textView, "Error message received: %s\n", string(text))
+			// })
+			a.pending.Done(msg, errors.New("Call was rejected"))
+		}
+
 		if len(msg.OtherElements) < 1 {
 			return
 		}
@@ -192,6 +193,18 @@ func (a *App) ParseXMPPMessage(msg *xmpp.Message) {
 			return
 		}
 		switch msg.OtherElements[0].XMLName.Local {
+
+		// call rejected
+		// case "error":
+		// 	a.RemoteJID.Set("")
+		// 	a.ui.QueueUpdateDraw(func() {
+		// 		fmt.Fprintf(a.ui.textView, "Error message received: %s\n", string(text))
+		// 	})
+		// 	a.pending.Done(msg, errors.New("Call was rejected"))
+
+		// call accepted
+		case "result":
+			a.pending.Done(msg, nil)
 
 		// request to open channel
 		case "open":
@@ -244,7 +257,15 @@ func (a *App) AcceptCallMsg(msg *xmpp.Message) {
 	resp := xmpp.Message{}
 	resp.To = msg.From
 	resp.ID = msg.ID
-	resp.Type = "result"
+	resp.Type = "voxmpp"
+	resp.OtherElements = []xmpp.XMLElement{
+		{
+			XMLName: xml.Name{
+				Space: NSVOXMPP,
+				Local: "result",
+			},
+		},
+	}
 
 	_, err := a.SendMessage(&resp)
 	if err != nil {
@@ -270,8 +291,15 @@ func (a *App) RejectCallMsg(msg *xmpp.Message) {
 		}
 		resp.ID = u.String()
 	}
-
-	resp.Type = "error"
+	resp.Type = "voxmpp"
+	resp.OtherElements = []xmpp.XMLElement{
+		{
+			XMLName: xml.Name{
+				Space: NSVOXMPP,
+				Local: "error",
+			},
+		},
+	}
 
 	_, err := a.SendMessage(&resp)
 	if err != nil {
@@ -284,11 +312,24 @@ func (a *App) RejectCallMsg(msg *xmpp.Message) {
 // AbortOutgoingCall aborts call
 func (a *App) AbortOutgoingCall(msg *xmpp.Message) {
 	errMsg := xmpp.Message{}
-	errMsg.Type = "error"
+	errMsg.Type = "voxmpp"
 	errMsg.To = msg.To
 	errMsg.ID = msg.ID
-	// msg.OtherElements = []xmpp.XMLElement{}
-	// msg.Error = &xmpp.Error{}
+	errMsg.Error = &xmpp.Error{
+		XMLName: xml.Name{
+			Space: NSVOXMPP,
+			Local: "error",
+		},
+	}
+
+	// errMsg.OtherElements = []xmpp.XMLElement{
+	// 	{
+	// 		XMLName: xml.Name{
+	// 			Space: NSVOXMPP,
+	// 			Local: "error",
+	// 		},
+	// 	},
+	// }
 
 	// a.pending.Pop(msg.ID)
 	a.pending.Done(msg, errors.New("cancelled"))
